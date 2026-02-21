@@ -1,0 +1,25 @@
+{
+  "name": "brc100-encrypted-messaging",
+  "version": "1.0.0",
+  "description": "Encrypted messaging using BRC-42/43 key derivation and BRC-77 signatures",
+  "main": "index.js",
+  "scripts": {
+    "demo": "ts-node messaging.ts demo",
+    "seed": "ts-node seed.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bsv/sdk": "^1.9.29",
+    "@bsv/wallet-toolbox": "^2.1.0-beta.3",
+    "better-sqlite3": "^12.6.2",
+    "dotenv": "^17.3.1",
+    "knex": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

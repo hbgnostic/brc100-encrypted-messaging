@@ -1,0 +1,7 @@
+node_modules/
+dist/
+seed.bin
+.env
+*.sqlite
+wallet-key.json
+.claude/
