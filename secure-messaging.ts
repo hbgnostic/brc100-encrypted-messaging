@@ -4,12 +4,22 @@ import crypto from "crypto";
 import { PrivateKey, Utils, WalletProtocol } from "@bsv/sdk";
 import { Setup } from "@bsv/wallet-toolbox";
 
+// Terminal colors (ANSI escape codes, no dependencies)
+const c = {
+  green: (s: string) => `\x1b[32m${s}\x1b[0m`,
+  cyan: (s: string) => `\x1b[36m${s}\x1b[0m`,
+  yellow: (s: string) => `\x1b[33m${s}\x1b[0m`,
+  red: (s: string) => `\x1b[31m${s}\x1b[0m`,
+  bold: (s: string) => `\x1b[1m${s}\x1b[0m`,
+  dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
+};
+
 // Protocol definition for encrypted messaging
 // SecurityLevel 2 = per-counterparty per-application
 const MESSAGING_PROTOCOL: WalletProtocol = [2, "encrypted messaging"];
 
 // Default key ID for the conversation
-const DEFAULT_KEY_ID = "default";
+const DEFAULT_KEY_ID = "001";
 
 // Where we persist the wallet's private key
 const KEY_FILE = path.join(__dirname, "wallet-key.json");
@@ -30,6 +40,9 @@ function saveKey(privateKeyHex: string, identityKey: string): void {
 }
 
 // ── Wallet Setup ──
+// Note: This CLI creates a new wallet instance on every command invocation.
+// In a long-running application (server, chat app), you would call setup once
+// at startup and reuse the wallet object for all operations.
 
 async function createWallet(rootKeyHex: string) {
   const identityKey = PrivateKey.fromHex(rootKeyHex).toPublicKey().toString();
@@ -55,7 +68,7 @@ async function createWallet(rootKeyHex: string) {
 async function loadWallet() {
   const stored = loadKey();
   if (!stored) {
-    console.error("No wallet found. Run 'init' first.");
+    console.error(c.red("No wallet found. Run 'init' first."));
     process.exit(1);
   }
   return createWallet(stored.privateKeyHex);
@@ -66,10 +79,10 @@ async function loadWallet() {
 async function runInit() {
   const existing = loadKey();
   if (existing) {
-    console.log("Wallet already exists.");
-    console.log("Identity key:", existing.identityKey);
+    console.log(c.yellow("Wallet already exists."));
+    console.log(c.bold("Identity key:"), c.cyan(existing.identityKey));
     console.log();
-    console.log("Share this key with the person you want to message.");
+    console.log(c.dim("Share this key with the person you want to message."));
     return;
   }
 
@@ -85,29 +98,29 @@ async function runInit() {
   // Persist the key
   saveKey(privateKeyHex, identityKey);
 
-  console.log("Wallet created.");
-  console.log("Identity key:", identityKey);
+  console.log(c.green("Wallet created."));
+  console.log(c.bold("Identity key:"), c.cyan(identityKey));
   console.log();
-  console.log("Share this key with the person you want to message.");
+  console.log(c.dim("Share this key with the person you want to message."));
 }
 
 async function runIdentity() {
   const stored = loadKey();
   if (!stored) {
-    console.error("No wallet found. Run 'init' first.");
+    console.error(c.red("No wallet found. Run 'init' first."));
     process.exit(1);
   }
-  console.log(stored.identityKey);
+  console.log(c.cyan(stored.identityKey));
 }
 
-async function runEncrypt() {
+async function runSendMessage() {
   const recipientPubKey = process.argv[3];
   const message = process.argv[4];
   const keyID = process.argv[5] || DEFAULT_KEY_ID;
 
   if (!recipientPubKey || !message) {
     console.error(
-      'Usage: npx ts-node messaging.ts encrypt <recipient-pubkey> "message" [keyID]'
+      c.red('Usage: npx ts-node secure-messaging.ts send <recipient-pubkey> "message" [keyID]')
     );
     process.exit(1);
   }
@@ -142,12 +155,12 @@ async function runEncrypt() {
   await setup.wallet.destroy();
 }
 
-async function runDecrypt() {
+async function runReceiveMessage() {
   const envelopeJson = process.argv[3];
 
   if (!envelopeJson) {
     console.error(
-      "Usage: npx ts-node messaging.ts decrypt '<envelope-json>'"
+      c.red("Usage: npx ts-node secure-messaging.ts receive '<envelope-json>'")
     );
     process.exit(1);
   }
@@ -171,7 +184,7 @@ async function runDecrypt() {
     counterparty: envelope.sender,
     forSelf: false,
   });
-  console.log("Signature valid:", verification.valid);
+  console.log(c.bold("Signature valid:"), c.green(String(verification.valid)));
 
   // Decrypt using the wallet's BRC-100 decrypt method
   const decrypted = await setup.wallet.decrypt({
@@ -181,27 +194,27 @@ async function runDecrypt() {
     counterparty: envelope.sender,
   });
 
-  console.log("From:", envelope.sender);
-  console.log("Message:", Utils.toUTF8(decrypted.plaintext));
+  console.log(c.bold("From:"), c.cyan(envelope.sender));
+  console.log(c.bold("Message:"), c.green(Utils.toUTF8(decrypted.plaintext)));
   await setup.wallet.destroy();
 }
 
 async function runDemo() {
-  console.log("=== BRC-100 Encrypted Messaging Demo ===\n");
+  console.log(c.bold("=== BRC-100 Encrypted Messaging Demo ===\n"));
 
   const aliceKey = PrivateKey.fromRandom().toHex();
   const bobKey = PrivateKey.fromRandom().toHex();
 
   console.log("Setting up Alice's wallet...");
   const alice = await createWallet(aliceKey);
-  console.log("Alice identity key:", alice.identityKey.slice(0, 24) + "...\n");
+  console.log(c.bold("Alice identity key:"), c.cyan(alice.identityKey.slice(0, 24) + "...\n"));
 
   console.log("Setting up Bob's wallet...");
   const bob = await createWallet(bobKey);
-  console.log("Bob identity key:", bob.identityKey.slice(0, 24) + "...\n");
+  console.log(c.bold("Bob identity key:"), c.cyan(bob.identityKey.slice(0, 24) + "...\n"));
 
   const plaintext = "Hello Bob, this is a secret message from Alice!";
-  console.log("Plaintext:", plaintext);
+  console.log(c.bold("Plaintext:"), plaintext);
   console.log();
 
   console.log("Alice encrypts for Bob...");
@@ -212,8 +225,8 @@ async function runDemo() {
     counterparty: bob.identityKey,
   });
   console.log(
-    "Ciphertext:",
-    Buffer.from(encrypted.ciphertext).toString("base64").slice(0, 40) + "..."
+    c.bold("Ciphertext:"),
+    c.yellow(Buffer.from(encrypted.ciphertext).toString("base64").slice(0, 40) + "...")
   );
   console.log();
 
@@ -225,8 +238,8 @@ async function runDemo() {
     counterparty: bob.identityKey,
   });
   console.log(
-    "Signature:",
-    Buffer.from(signed.signature).toString("base64").slice(0, 40) + "..."
+    c.bold("Signature:"),
+    c.yellow(Buffer.from(signed.signature).toString("base64").slice(0, 40) + "...")
   );
   console.log();
 
@@ -239,7 +252,7 @@ async function runDemo() {
     counterparty: alice.identityKey,
     forSelf: false,
   });
-  console.log("Signature valid:", verification.valid);
+  console.log(c.bold("Signature valid:"), c.green(String(verification.valid)));
   console.log();
 
   console.log("Bob decrypts the message...");
@@ -250,11 +263,11 @@ async function runDemo() {
     counterparty: alice.identityKey,
   });
   const decryptedText = Utils.toUTF8(decrypted.plaintext);
-  console.log("Decrypted:", decryptedText);
+  console.log(c.bold("Decrypted:"), c.green(decryptedText));
   console.log();
 
   const match = decryptedText === plaintext;
-  console.log("Round-trip OK:", match);
+  console.log(c.bold("Round-trip OK:"), match ? c.green("true") : c.red("false"));
 
   await alice.wallet.destroy();
   await bob.wallet.destroy();
@@ -265,13 +278,13 @@ async function runDemo() {
 // ── CLI ──
 
 function printUsage() {
-  console.log("BRC-100 Encrypted Messaging\n");
-  console.log("Commands:");
-  console.log("  init                                  Create a new wallet identity");
-  console.log("  identity                              Show your public identity key");
-  console.log('  encrypt <recipient-pubkey> "message"   Encrypt and sign a message');
-  console.log("  decrypt '<envelope-json>'              Verify and decrypt a message");
-  console.log("  demo                                  Run a self-contained Alice/Bob demo");
+  console.log(c.bold("BRC-100 Encrypted Messaging\n"));
+  console.log(c.bold("Commands:"));
+  console.log(`  ${c.cyan("init")}                                  Create a new wallet identity`);
+  console.log(`  ${c.cyan("identity")}                              Show your public identity key`);
+  console.log(`  ${c.cyan("send")} <recipient-pubkey> "message"      Encrypt and sign a message`);
+  console.log(`  ${c.cyan("receive")} '<envelope-json>'              Verify and decrypt a message`);
+  console.log(`  ${c.cyan("demo")}                                  Run a self-contained Alice/Bob demo`);
 }
 
 if (require.main === module) {
@@ -282,10 +295,10 @@ if (require.main === module) {
     run = runInit();
   } else if (command === "identity") {
     run = runIdentity();
-  } else if (command === "encrypt") {
-    run = runEncrypt();
-  } else if (command === "decrypt") {
-    run = runDecrypt();
+  } else if (command === "send") {
+    run = runSendMessage();
+  } else if (command === "receive") {
+    run = runReceiveMessage();
   } else if (command === "demo") {
     run = runDemo();
   } else {
@@ -294,7 +307,7 @@ if (require.main === module) {
   }
 
   run!.catch((err) => {
-    console.error("Error:", err.message);
+    console.error(c.red("Error:"), err.message);
     process.exit(1);
   });
 }

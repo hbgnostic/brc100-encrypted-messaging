@@ -5,3 +5,4 @@ seed.bin
 *.sqlite
 wallet-key.json
 .claude/
+docs/working.md
